@@ -13,7 +13,7 @@ from app.scanner import (
     sniff_format,
 )
 
-from .conftest import make_image_file
+from .conftest import build_fake_wechat_home, make_image_file
 
 
 def test_sniff_format_bytes():
@@ -55,7 +55,7 @@ def test_scan_directory_small_file_skipped(sticker_factory):
     assert "th_a.gif" not in names
 
 
-def _build_fake_wechat_home(tmp_path):
+def build_fake_wechat_home(tmp_path):
     docs = tmp_path / "Documents"
     emo = docs / "WeChat Files" / "wxid_test123" / "FileStorage" / "CustomEmotion"
     emo.mkdir(parents=True)
@@ -65,7 +65,7 @@ def _build_fake_wechat_home(tmp_path):
 
 
 def test_detect_wechat_dirs_3x(tmp_path):
-    home, emo = _build_fake_wechat_home(tmp_path)
+    home, emo = build_fake_wechat_home(tmp_path)
     found = detect_wechat_dirs(home=home)
     assert any(d.path == str(emo) and d.rule_id == "wechat3x" for d in found)
     d = next(d for d in found if d.path == str(emo))
@@ -79,7 +79,7 @@ def test_detect_wechat_dirs_none(tmp_path):
 
 
 def test_is_probably_wechat_dir(tmp_path):
-    home, emo = _build_fake_wechat_home(tmp_path)
+    home, emo = build_fake_wechat_home(tmp_path)
     # 在探测目录内 → 拦
     assert is_probably_wechat_dir(emo / "x.gif")
     # 目录名含 WeChat Files 但未探测到（兜底判据）→ 拦

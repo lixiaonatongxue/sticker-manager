@@ -53,6 +53,16 @@ def make_unknown_file(path, pad_to: int = 256) -> None:
     path.write_bytes(b"\x0a\x0b\x0c\x0d" + b"\x7f" * (pad_to - 4))
 
 
+def build_fake_wechat_home(tmp_path):
+    """构造一个假的微信 3.x 数据目录，返回 (home, CustomEmotion 目录)。"""
+    docs = tmp_path / "Documents"
+    emo = docs / "WeChat Files" / "wxid_test123" / "FileStorage" / "CustomEmotion"
+    emo.mkdir(parents=True)
+    make_image_file(emo / "s1.gif", "gif")
+    make_image_file(emo / "s2", "png")
+    return tmp_path, emo
+
+
 @pytest.fixture
 def sticker_factory(tmp_path):
     """在临时目录里批量造格式各异的表情文件，返回 (目录, 已知统计)。"""
