@@ -4,6 +4,10 @@
 
 **不联网、不注入微信、只读你的磁盘、绝不写微信目录。**
 
+[English](README.en.md) | 简体中文
+
+![demo](docs/demo.gif)
+
 ## 它解决什么问题
 
 - 微信没有任何表情管理功能：攒了几百上千个表情，不能搜索、不能批量导出
@@ -92,7 +96,8 @@ sticker-manager/
 │   └── server.py     # FastAPI 本地 API（仅 127.0.0.1）
 ├── web/              # Vue3 + Vite 前端
 ├── rules/paths.json  # 微信目录探测规则表（社区可更新）
-└── tests/            # 35 个单元/集成测试（全部合成数据）
+├── scripts/          # make_demo.py 演示数据生成器等
+└── tests/            # 37 个单元/集成测试（全部合成数据）
 ```
 
 ## 开发
@@ -100,12 +105,13 @@ sticker-manager/
 ```bash
 pip install -e ".[dev]"
 pytest                        # 运行测试
+python scripts/make_demo.py   # 生成演示数据（文字梗风格合成图）
 cd web && npm run dev         # 前端开发模式（代理到 8765）
 ```
 
 ## 路线图
 
-- [ ] v0.2：点图打标签、备份模式（unknown 加密文件按 .dat 原样导出）、一键导出全部
+- [x] v0.2：点图打标签、备份模式（unknown 加密文件按 .dat 原样导出）、一键导出全部
 - [ ] v0.3：本地 CLIP（ONNX）自动中文打标签，完全离线
 - [ ] v1.0：watchdog 目录监听增量入库、i18n、PyInstaller 单文件打包
 - [ ] 社区：V1MMWX / 4.x 加密格式研究
