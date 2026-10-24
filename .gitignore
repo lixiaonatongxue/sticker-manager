@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+
+# 运行时数据（索引库 / 缩略图缓存 / 导出结果）一律不进 git
+data/
+*.db
+*.sqlite3
+thumbnails/
+exports/
+
+# 前端
+web/node_modules/
+web/dist/
+
+# 真实用户数据严禁入库（单元测试用合成数据 tests/fixtures/）
+tests/data_real/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

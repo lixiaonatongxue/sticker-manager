@@ -1,0 +1,35 @@
+{
+  "_comment": "微信表情目录探测规则表。patterns 相对 base 目录，支持 * 通配。微信 4.x 的表情目录结构以社区实测为准，欢迎 PR 补充；探测失败时用户可手动选择任意文件夹。",
+  "version": 1,
+  "roots": [
+    {
+      "id": "wechat3x",
+      "label": "微信 3.x",
+      "base": [
+        "~/Documents",
+        "~/OneDrive/Documents",
+        "~/OneDrive/文档",
+        "~/文档"
+      ],
+      "patterns": [
+        "WeChat Files/wxid_*/FileStorage/CustomEmotion",
+        "WeChat Files/wxid_*/FileStorage/Emoji"
+      ]
+    },
+    {
+      "id": "wechat4x",
+      "label": "微信 4.x",
+      "base": [
+        "~/Documents",
+        "~/OneDrive/Documents",
+        "~/OneDrive/文档",
+        "~/文档"
+      ],
+      "patterns": [
+        "xwechat_files/wxid_*/msg/emotion",
+        "xwechat_files/wxid_*/msg/custom_emotion",
+        "xwechat_files/wxid_*/msg/emoji"
+      ]
+    }
+  ]
+}
