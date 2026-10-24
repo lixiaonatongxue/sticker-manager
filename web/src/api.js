@@ -34,6 +34,9 @@ export const api = {
   duplicates: () => request('/api/duplicates'),
   computeDuplicates: (threshold = 8) =>
     request('/api/duplicates/compute', { method: 'POST', body: { threshold } }),
-  export: (ids, dest, naming = 'orig') =>
-    request('/api/export', { method: 'POST', body: { ids, dest, naming } }),
+  export: (ids, dest, naming = 'orig', includeUnknown = false, all = false) =>
+    request('/api/export', {
+      method: 'POST',
+      body: { ids, dest, naming, include_unknown: includeUnknown, all },
+    }),
 }

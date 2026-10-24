@@ -1,16 +1,21 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { api } from '../api.js'
 
 const props = defineProps({
-  ids: { type: Array, required: true },
+  ids: { type: Array, default: () => [] },
+  allMode: { type: Boolean, default: false }, // 备份模式：导出索引内全部
 })
 const emit = defineEmits(['close', 'done'])
 
 const dest = ref('')
-const naming = ref('orig')
+const naming = ref(props.allMode ? 'md5' : 'orig')
+const includeUnknown = ref(props.allMode)
 const busy = ref(false)
 const error = ref('')
+
+const title = computed(() =>
+  props.allMode ? `备份全部 ${props.ids.length} 个表情` : `导出 ${props.ids.length} 个表情`)
 
 async function doExport() {
   if (!dest.value.trim()) {
@@ -20,7 +25,8 @@ async function doExport() {
   busy.value = true
   error.value = ''
   try {
-    const r = await api.export(props.ids, dest.value.trim(), naming.value)
+    const r = await api.export(
+      props.ids, dest.value.trim(), naming.value, includeUnknown.value, props.allMode)
     emit('done', r)
   } catch (e) {
     error.value = e.message
@@ -33,7 +39,7 @@ async function doExport() {
 <template>
   <div class="modal-mask" @click.self="$emit('close')">
     <div class="modal">
-      <h3>导出 {{ ids.length }} 个表情</h3>
+      <h3>{{ title }}</h3>
       <div class="row">
         <input type="text" v-model="dest" placeholder="例如 D:\stickers-export（微信目录会被拒绝）" />
       </div>
@@ -42,7 +48,15 @@ async function doExport() {
           <option value="orig">保留原名 + 补扩展名</option>
           <option value="md5">按 MD5 命名（内容相同自动去重）</option>
         </select>
-        <button class="primary" :disabled="busy" @click="doExport">{{ busy ? '导出中…' : '导出' }}</button>
+      </div>
+      <div class="row">
+        <label style="display: flex; gap: 6px; align-items: center; font-size: 13px">
+          <input type="checkbox" v-model="includeUnknown" />
+          包含未知格式（微信新版加密表情按 .dat 原样备份）
+        </label>
+      </div>
+      <div class="row">
+        <button class="primary" :disabled="busy" @click="doExport">{{ busy ? '导出中…' : '开始' }}</button>
         <button @click="$emit('close')">取消</button>
       </div>
       <p class="hint">

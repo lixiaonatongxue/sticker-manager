@@ -235,17 +235,23 @@ def thumbnail(sticker_id: int, request: Request):
 # ------------------------------------------------------------------ 导出
 
 class ExportRequest(BaseModel):
-    ids: list[int]
+    ids: list[int] = []
     dest: str
     naming: str = "orig"
+    include_unknown: bool = False  # unknown/加密文件按 .dat 原样导出
+    all: bool = False              # 备份模式：导出索引内全部表情
 
 
 @app.post("/api/export")
 def export(req: ExportRequest, request: Request):
     idx = _open_index(request)
     try:
+        ids = [r["id"] for r in idx.all_stickers()] if req.all else req.ids
+        if not ids:
+            raise HTTPException(400, "没有可导出的表情（索引为空或 ids 为空）")
         try:
-            r = export_stickers(idx, req.ids, req.dest, naming=req.naming)
+            r = export_stickers(idx, ids, req.dest, naming=req.naming,
+                                include_unknown=req.include_unknown)
         except ExportSafetyError as e:
             raise HTTPException(400, str(e))
         return {"summary": r.summary(), "exported": r.exported,

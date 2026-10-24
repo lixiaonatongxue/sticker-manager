@@ -106,7 +106,12 @@ def cmd_report(args) -> int:
 def cmd_export(args) -> int:
     idx = _open_index(args)
     try:
-        if args.ids:
+        if args.all:
+            ids = [r["id"] for r in idx.all_stickers()]
+            if not ids:
+                print("索引为空，请先执行 scan。")
+                return 1
+        elif args.ids:
             ids = [int(x) for x in args.ids.split(",") if x.strip()]
         elif args.keepers:
             ids = [g.keeper_id for g in load_groups(idx)]
@@ -114,10 +119,11 @@ def cmd_export(args) -> int:
                 print("没有重复组。可先运行 report，或用 --ids 指定导出对象。")
                 return 1
         else:
-            print("请指定 --ids 或 --keepers")
+            print("请指定 --ids / --keepers / --all 之一")
             return 1
         try:
-            r = export_stickers(idx, ids, args.dest, naming=args.naming)
+            r = export_stickers(idx, ids, args.dest, naming=args.naming,
+                                include_unknown=args.include_unknown)
         except ExportSafetyError as e:
             print(f"已拒绝导出：{e}")
             return 2
@@ -158,6 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     ep.add_argument("--dest", required=True, help="导出目的地（微信目录/源目录会被拒绝）")
     ep.add_argument("--ids", help="逗号分隔的 id 列表")
     ep.add_argument("--keepers", action="store_true", help="导出每个重复组的 keeper（精选）")
+    ep.add_argument("--all", action="store_true", help="备份模式：导出索引内全部表情")
+    ep.add_argument("--include-unknown", action="store_true",
+                    help="unknown/加密文件按 .dat 原样导出（配合 --all 做全量备份）")
     ep.add_argument("--naming", choices=["orig", "md5"], default="orig", help="命名方式")
 
     vp = sub.add_parser("serve", help="启动本地 Web 界面（仅 127.0.0.1）")

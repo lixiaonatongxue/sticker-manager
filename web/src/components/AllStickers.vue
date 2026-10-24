@@ -17,6 +17,7 @@ const tag = ref(props.tagFilter)
 const q = ref('')
 const selected = reactive(new Set())
 const showExport = ref(false)
+const showBackup = ref(false)
 
 const formats = ['gif', 'png', 'jpg', 'webp', 'bmp', 'mp4', 'unknown']
 const tags = ref([])
@@ -90,6 +91,7 @@ onMounted(() => { load(); loadTags() })
       <div style="flex: 1"></div>
       <button @click="selectAll">全选本页</button>
       <button @click="clearSel" :disabled="!selected.size">清空选择</button>
+      <button v-if="total" @click="showBackup = true">💾 备份全部</button>
     </div>
 
     <div class="loader" v-if="loading">加载中…</div>
@@ -119,5 +121,6 @@ onMounted(() => { load(); loadTags() })
     </div>
 
     <ExportDialog v-if="showExport" :ids="[...selected]" @close="showExport = false" @done="onExportDone" />
+    <ExportDialog v-if="showBackup" :ids="[]" :all-mode="true" @close="showBackup = false" @done="onExportDone" />
   </div>
 </template>

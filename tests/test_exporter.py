@@ -59,6 +59,26 @@ def test_export_unknown_format_skipped(indexed):
     assert r.skipped[0]["reason"] == "unknown_format"
 
 
+def test_export_unknown_as_dat_backup(indexed):
+    idx, root, tmp = indexed
+    dest = tmp / "backup"
+    r = export_stickers(idx, _ids(idx, "a", "x"), dest, include_unknown=True)
+    assert r.summary()["exported"] == 2
+    files = sorted(p.name for p in dest.iterdir())
+    assert files == ["a.gif", "x.dat"]  # unknown 按 .dat 原样带走
+    assert (dest / "x.dat").read_bytes() == (root / "x").read_bytes()
+
+
+def test_export_all_ids_backup_mode(indexed):
+    idx, root, tmp = indexed
+    dest = tmp / "backup-all"
+    all_ids = [r["id"] for r in idx.all_stickers()]
+    r = export_stickers(idx, all_ids, dest, naming="md5", include_unknown=True)
+    # 5 个文件，其中 dupe1/dupe2 同 md5 → md5 命名去重后 4 个
+    assert r.summary()["exported"] == 4
+    assert r.summary()["skipped"] == 1
+
+
 def test_export_refuses_wechat_dir(indexed, tmp_path):
     idx, root, tmp = indexed
     home, emo = build_fake_wechat_home(tmp_path)

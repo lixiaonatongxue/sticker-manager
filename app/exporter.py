@@ -67,6 +67,7 @@ def export_stickers(
     ids: list[int],
     dest: str | os.PathLike,
     naming: str = "orig",   # "orig"：原名+扩展名 | "md5"：md5 前缀命名（同名自动去重）
+    include_unknown: bool = False,  # True 时 unknown/加密文件按 .dat 原样导出（备份模式）
 ) -> ExportResult:
     result = ExportResult()
     dest_path = Path(dest)
@@ -78,22 +79,24 @@ def export_stickers(
         if s is None:
             result.skipped.append({"id": sid, "path": "", "reason": "not_found"})
             continue
-        if not s["format"] or s["format"] == "unknown":
+        # unknown = 微信新版加密表情等无法识别的格式；备份模式下按 .dat 原样带走
+        if (not s["format"] or s["format"] == "unknown") and not include_unknown:
             result.skipped.append({"id": sid, "path": s["path"], "reason": "unknown_format"})
             continue
+        ext = "dat" if (not s["format"] or s["format"] == "unknown") else s["format"]
         if not os.path.exists(s["path"]):
             result.skipped.append({"id": sid, "path": s["path"], "reason": "source_missing"})
             continue
 
         if naming == "md5":
-            name = f"{s['md5'][:16]}.{s['format']}"
+            name = f"{s['md5'][:16]}.{ext}"
             target = dest_path / name
             if target.exists():  # 完全相同的文件只导出一次
                 result.skipped.append({"id": sid, "path": s["path"], "reason": "same_md5_already_exported"})
                 continue
         else:
             stem = Path(s["path"]).stem
-            target = _unique_path(dest_path / f"{stem}.{s['format']}")
+            target = _unique_path(dest_path / f"{stem}.{ext}")
 
         try:
             shutil.copyfile(s["path"], target)
