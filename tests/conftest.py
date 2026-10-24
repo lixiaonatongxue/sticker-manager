@@ -20,20 +20,20 @@ def _gradient(size: int, channel: int = 0) -> Image.Image:
 
 
 def _blob(size: int, hue: int = 0) -> Image.Image:
-    """渐变背景 + 两个椭圆主体，模拟真实表情图的低频结构。
-
-    不同 hue 生成内容不同的图；同 hue 不同 size 是同一张图的缩放版，
-    pHash 距离应很小（实测 ≤2）。
+    """渐变背景 + 椭圆主体。hue 同时驱动配色和主体几何（位置/大小），
+    因此不同 hue 是结构不同的图（pHash 距离 > 8），同 hue 不同 size 是
+    同一张图的等比缩放（pHash 距离 ≤ 8）。
     """
     img = Image.new("RGB", (size, size))
     px = img.load()
     for y in range(size):
         for x in range(size):
-            px[x, y] = (x * 200 // size, y * 200 // size, 90 + hue)
+            px[x, y] = (x * 200 // size, y * 200 // size, 90 + (hue % 160))
     draw = ImageDraw.Draw(img)
-    r = size * 3 // 10
-    cx, cy = size // 2, size // 2
-    draw.ellipse([cx - r, cy - r * 3 // 4, cx + r, cy + r * 3 // 4], fill=(240, 90 + hue, 40))
+    r = size * (3 + hue % 3) // 10                 # 半径随 hue 变
+    cx = size // 2 + ((hue % 5) - 2) * size // 16  # 圆心随 hue 漂移
+    cy = size // 2 - ((hue % 3) - 1) * size // 16
+    draw.ellipse([cx - r, cy - r * 3 // 4, cx + r, cy + r * 3 // 4], fill=(240, 90 + (hue % 160), 40))
     draw.ellipse([cx - r // 2, cy + r // 8, cx - r // 8, cy + r // 2], fill=(20, 30, 200))
     return img
 
