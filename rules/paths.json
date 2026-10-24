@@ -1,6 +1,6 @@
 {
-  "_comment": "微信表情目录探测规则表。patterns 相对 base 目录，支持 * 通配。微信 4.x 的表情目录结构以社区实测为准，欢迎 PR 补充；探测失败时用户可手动选择任意文件夹。",
-  "version": 1,
+  "_comment": "微信表情目录探测规则表。patterns 相对 base 目录，支持 * 通配。除固定 base 外，代码还会从 %APPDATA%/Tencent/xwechat/config/*.ini 读取用户自选的数据根目录（实测 2026-10：首行即路径）。4.x 表情目录为 business/emoticon（内含 Persist/Temp/Thumb 分片子目录），系真机实测确认；msg/* 候选保留以兼容其他版本。欢迎 PR 补充新版本结构。",
+  "version": 2,
   "roots": [
     {
       "id": "wechat3x",
@@ -26,9 +26,9 @@
         "~/文档"
       ],
       "patterns": [
+        "xwechat_files/wxid_*/business/emoticon",
         "xwechat_files/wxid_*/msg/emotion",
-        "xwechat_files/wxid_*/msg/custom_emotion",
-        "xwechat_files/wxid_*/msg/emoji"
+        "xwechat_files/wxid_*/msg/custom_emotion"
       ]
     }
   ]

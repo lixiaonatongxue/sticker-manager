@@ -72,9 +72,10 @@ def test_detect_wechat_dirs_3x(tmp_path):
     assert d.n_files == 2
 
 
-def test_detect_wechat_dirs_none(tmp_path):
+def test_detect_wechat_dirs_none(tmp_path, monkeypatch):
     empty = tmp_path / "nothing"  # 规则里没有任何匹配
     empty.mkdir()
+    monkeypatch.setenv("APPDATA", str(tmp_path / "no-appdata"))  # 屏蔽本机真实微信配置
     assert detect_wechat_dirs(home=empty) == []
 
 
@@ -88,6 +89,25 @@ def test_is_probably_wechat_dir(tmp_path):
     # 普通目录 / 上层公共目录 → 放行
     assert not is_probably_wechat_dir(tmp_path / "exports")
     assert not is_probably_wechat_dir(home / "Documents")
+
+
+def test_detect_via_wechat_config_ini(tmp_path, monkeypatch):
+    """4.x 配置 ini 首行指向自选数据根 → 3.x/4.x 目录都能从那里挖出来。"""
+    appdata = tmp_path / "AppData"
+    cfg = appdata / "Tencent" / "xwechat" / "config"
+    cfg.mkdir(parents=True)
+    root = tmp_path / "E-wechat"
+    emo4 = root / "xwechat_files" / "wxid_ab" / "business" / "emoticon"
+    emo4.mkdir(parents=True)
+    emo3 = root / "WeChat Files" / "wxid_ab" / "FileStorage" / "CustomEmotion"
+    emo3.mkdir(parents=True)
+    (cfg / "abc.ini").write_text(str(root) + "\n", encoding="utf-8")
+    monkeypatch.setenv("APPDATA", str(appdata))
+    found = detect_wechat_dirs(home=tmp_path)  # home 指空目录，屏蔽真实 ~/Documents
+    paths = {d.path for d in found}
+    assert str(emo4) in paths and str(emo3) in paths
+    labels = {d.path: d.rule_id for d in found}
+    assert labels[str(emo4)] == "wechat4x" and labels[str(emo3)] == "wechat3x"
 
 
 def test_default_rules_path_exists():

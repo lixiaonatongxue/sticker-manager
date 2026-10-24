@@ -145,7 +145,8 @@ def detect_wechat_dirs(
 
     found: dict[str, DetectedDir] = {}
     for root_rule in rules.get("roots", []):
-        for base in root_rule.get("base", []):
+        bases = list(root_rule.get("base", [])) + _config_derived_bases()
+        for base in bases:
             base_path = Path(_expanduser(base, home))
             if not base_path.is_dir():
                 continue
@@ -160,6 +161,30 @@ def detect_wechat_dirs(
                     # 同一目录被多条规则命中时，保留文件数信息即可，不去重报警
                     found.setdefault(str(p).lower(), d)
     return list(found.values())
+
+
+def _config_derived_bases() -> list[str]:
+    """从微信 4.x 客户端配置里挖自定义数据根目录（只读）。
+
+    实测（2026-10）：%APPDATA%/Tencent/xwechat/config/*.ini 首行是用户自选的
+    数据目录（如 E:\\wechat），其下同时存在 xwechat_files（4.x）与
+    WeChat Files（3.x）。读取失败静默返回空。
+    """
+    bases: list[str] = []
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return bases
+    cfg_dir = Path(appdata) / "Tencent" / "xwechat" / "config"
+    if not cfg_dir.is_dir():
+        return bases
+    for ini in cfg_dir.glob("*.ini"):
+        try:
+            lines = ini.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+        if lines and lines[0].strip() and Path(lines[0].strip()).is_dir():
+            bases.append(lines[0].strip())
+    return list(dict.fromkeys(bases))  # 去重保序
 
 
 def is_probably_wechat_dir(path: str | os.PathLike) -> bool:
