@@ -22,7 +22,9 @@ from .scanner import detect_wechat_dirs, scan_directory
 
 app = FastAPI(title="Sticker Manager", version=__version__)
 
-app.state.db_path = None  # 测试可覆盖；None = 默认路径
+# 环境变量可覆盖 DB 路径（测试/多库切换用）；None = 默认 ~/.sticker-manager/stickers.db
+import os as _os
+app.state.db_path = _os.environ.get("STICKER_MANAGER_DB")
 app.state.web_dist = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 # ------------------------------------------------------------------ 扫描任务
@@ -264,8 +266,9 @@ if _dist.is_dir():
     app.mount("/", StaticFiles(directory=_dist, html=True), name="web")
 
 
-def main(host: str = "127.0.0.1", port: int = 8765) -> None:
+def main(host: str = "127.0.0.1", port: int | None = None) -> None:
     import uvicorn
+    port = port or int(_os.environ.get("STICKER_MANAGER_PORT", "8765"))
     print(f"Sticker Manager v{__version__}  ->  http://{host}:{port}（仅本机访问）")
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
