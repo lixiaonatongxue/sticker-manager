@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api.js'
 import StickerCard from './StickerCard.vue'
 import ExportDialog from './ExportDialog.vue'
+import StickerDetail from './StickerDetail.vue'
 
 const emit = defineEmits(['notify'])
 
@@ -13,6 +14,16 @@ const computing = ref(false)
 const threshold = ref(8)
 const selected = reactive(new Set())
 const showExport = ref(false)
+const detail = ref(null)
+
+function onOpen(s) { detail.value = s }
+function onDetailUpdated(s) {
+  detail.value = s
+  groups.value.forEach(g => {
+    const i = g.members.findIndex(m => m.id === s.id)
+    if (i >= 0) g.members[i] = s
+  })
+}
 
 async function load() {
   loading.value = true
@@ -102,6 +113,7 @@ onMounted(load)
           :selected="selected.has(m.id)"
           :is-keeper="m.id === g.keeper_id"
           @toggle="toggle"
+          @open="onOpen"
         />
       </div>
     </div>
@@ -113,5 +125,6 @@ onMounted(load)
     </div>
 
     <ExportDialog v-if="showExport" :ids="[...selected]" @close="showExport = false" @done="onExportDone" />
+    <StickerDetail v-if="detail" :sticker="detail" @close="detail = null" @updated="onDetailUpdated" />
   </div>
 </template>

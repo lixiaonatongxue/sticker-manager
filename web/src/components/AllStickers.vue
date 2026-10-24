@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../api.js'
 import StickerCard from './StickerCard.vue'
 import ExportDialog from './ExportDialog.vue'
+import StickerDetail from './StickerDetail.vue'
 
 const props = defineProps({ tagFilter: { type: String, default: '' } })
 const emit = defineEmits(['notify'])
@@ -18,6 +19,15 @@ const q = ref('')
 const selected = reactive(new Set())
 const showExport = ref(false)
 const showBackup = ref(false)
+const detail = ref(null)
+
+function onOpen(s) { detail.value = s }
+function onDetailUpdated(s) {
+  detail.value = s
+  const i = items.value.findIndex(x => x.id === s.id)
+  if (i >= 0) items.value[i] = s
+  loadTags()
+}
 
 const formats = ['gif', 'png', 'jpg', 'webp', 'bmp', 'mp4', 'unknown']
 const tags = ref([])
@@ -105,6 +115,7 @@ onMounted(() => { load(); loadTags() })
         :sticker="s"
         :selected="selected.has(s.id)"
         @toggle="toggle"
+        @open="onOpen"
       />
     </div>
 
@@ -122,5 +133,6 @@ onMounted(() => { load(); loadTags() })
 
     <ExportDialog v-if="showExport" :ids="[...selected]" @close="showExport = false" @done="onExportDone" />
     <ExportDialog v-if="showBackup" :ids="[]" :all-mode="true" @close="showBackup = false" @done="onExportDone" />
+    <StickerDetail v-if="detail" :sticker="detail" @close="detail = null" @updated="onDetailUpdated" />
   </div>
 </template>
