@@ -132,6 +132,12 @@ def cmd_export(args) -> int:
         idx.close()
 
 
+def cmd_serve(args) -> int:
+    from .server import main as serve_main
+    serve_main(port=args.port)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="sticker-manager", description="表情包管家：本地微信表情去重/导出（只读、不联网）")
     p.add_argument("--db", help="索引数据库路径（默认 ~/.sticker-manager/stickers.db）")
@@ -153,12 +159,16 @@ def build_parser() -> argparse.ArgumentParser:
     ep.add_argument("--ids", help="逗号分隔的 id 列表")
     ep.add_argument("--keepers", action="store_true", help="导出每个重复组的 keeper（精选）")
     ep.add_argument("--naming", choices=["orig", "md5"], default="orig", help="命名方式")
+
+    vp = sub.add_parser("serve", help="启动本地 Web 界面（仅 127.0.0.1）")
+    vp.add_argument("--port", type=int, default=8765)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    handlers = {"detect": cmd_detect, "scan": cmd_scan, "report": cmd_report, "export": cmd_export}
+    handlers = {"detect": cmd_detect, "scan": cmd_scan, "report": cmd_report,
+                "export": cmd_export, "serve": cmd_serve}
     return handlers[args.cmd](args)
 
 
