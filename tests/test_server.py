@@ -4,25 +4,13 @@ from __future__ import annotations
 
 import time
 
-import pytest
+import time
+
 from fastapi.testclient import TestClient
 
 from app.server import app
 
-from .conftest import make_image_file
-
-
-@pytest.fixture
-def client(tmp_path):
-    root = tmp_path / "CustomEmotion"
-    root.mkdir()
-    make_image_file(root / "a", "gif", size=64, hue=7)
-    make_image_file(root / "a_copy", "gif", size=64, hue=7)
-    make_image_file(root / "b", "png", size=96, hue=200)
-    app.state.db_path = tmp_path / "api.db"
-    with TestClient(app) as c:
-        yield c, root, tmp_path
-    app.state.db_path = None
+from .conftest import make_image_file  # noqa: F401  (client fixture via conftest)
 
 
 def _wait_scan_done(c, timeout=10):

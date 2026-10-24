@@ -31,7 +31,7 @@ app.state.web_dist = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 _scan_lock = threading.Lock()
 scan_state = {
-    "running": False, "done": 0, "total": 0,
+    "running": False, "done": 0, "total": 0, "note": None,
     "last_error": None, "last_stats": None, "finished_at": None,
 }
 
@@ -48,7 +48,12 @@ def _run_scan(path: str | None, max_files: int | None, db_path) -> None:
         if not roots:
             scan_state["last_error"] = "未探测到微信表情目录，请手动指定 path"
             return
-        result = scan_multiple(roots, max_files=max_files)
+        scan_state["note"] = "正在枚举文件…"
+        result = scan_multiple(
+            roots, max_files=max_files,
+            on_root=lambda i, n, r: scan_state.update(
+                note=f"正在枚举 {i + 1}/{n}：…{r[-40:]}"))
+        scan_state["note"] = None
         scan_state["total"] = result.total
         idx = StickerIndex(Path(db_path) if db_path else default_db_path())
         try:
@@ -84,7 +89,7 @@ def start_scan(req: ScanRequest, request: Request, bg: BackgroundTasks):
     with _scan_lock:
         if scan_state["running"]:
             raise HTTPException(409, "扫描进行中")
-        scan_state.update(running=True, done=0, total=0, last_error=None, last_stats=None)
+        scan_state.update(running=True, done=0, total=0, note=None, last_error=None, last_stats=None)
         bg.add_task(_run_scan, req.path, req.max_files, request.app.state.db_path)
     return {"ok": True, "message": "扫描已开始"}
 
@@ -219,9 +224,19 @@ def thumbnail(sticker_id: int, request: Request):
         thumbs.mkdir(exist_ok=True)
         target = thumbs / f"{s['id']}_{int(s['mtime'] or 0)}.webp"
         if not target.exists():
-            with Image.open(s["path"]) as img:
-                img.thumbnail((320, 320))
-                img.save(target, format="WEBP")
+            if s["dat_key"] is not None:
+                # 微信 XOR dat：内存中解码后生成缩略图（不写回源目录）
+                from .indexer import dat_xor_table
+                with open(s["path"], "rb") as f:
+                    data = f.read().translate(dat_xor_table(s["dat_key"]))
+                import io
+                with Image.open(io.BytesIO(data)) as img:
+                    img.thumbnail((320, 320))
+                    img.save(target, format="WEBP")
+            else:
+                with Image.open(s["path"]) as img:
+                    img.thumbnail((320, 320))
+                    img.save(target, format="WEBP")
         return FileResponse(target, media_type="image/webp")
     finally:
         idx.close()

@@ -13,7 +13,7 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .indexer import StickerIndex
+from .indexer import StickerIndex, dat_xor_table
 from .scanner import is_probably_wechat_dir
 
 
@@ -99,7 +99,13 @@ def export_stickers(
             target = _unique_path(dest_path / f"{stem}.{ext}")
 
         try:
-            shutil.copyfile(s["path"], target)
+            if s["dat_key"] is not None:
+                # 微信 XOR dat：解码后写出标准格式文件
+                with open(s["path"], "rb") as f:
+                    decoded = f.read().translate(dat_xor_table(s["dat_key"]))
+                target.write_bytes(decoded)
+            else:
+                shutil.copyfile(s["path"], target)
             result.exported.append(str(target))
         except OSError as e:
             result.errors.append(f"{s['path']}: {e}")

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import os
 import sqlite3
 import time
@@ -34,7 +35,8 @@ CREATE TABLE IF NOT EXISTS stickers (
   frames INTEGER,
   first_seen TEXT,
   mtime REAL,
-  tags TEXT DEFAULT ''
+  tags TEXT DEFAULT '',
+  dat_key INTEGER
 );
 CREATE TABLE IF NOT EXISTS dup_groups (
   group_id INTEGER,
@@ -44,6 +46,13 @@ CREATE TABLE IF NOT EXISTS dup_groups (
 CREATE INDEX IF NOT EXISTS idx_stickers_md5 ON stickers(md5);
 CREATE INDEX IF NOT EXISTS idx_stickers_phash ON stickers(phash);
 """
+
+
+def _ensure_column(conn: sqlite3.Connection, name: str, decl: str) -> None:
+    """老库平滑迁移：缺列则补。"""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(stickers)")}
+    if name not in cols:
+        conn.execute(f"ALTER TABLE stickers ADD COLUMN {name} {decl}")
 
 
 def default_db_path() -> Path:
@@ -63,12 +72,36 @@ def md5_file(path: str, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
+def dat_xor_table(key: int) -> bytes:
+    """单字节 XOR 的 translate 表（C 级速度解码整文件用）。"""
+    return bytes(i ^ key for i in range(256))
+
+
+def read_decoded(sf: StickerFile) -> bytes:
+    """读源文件；dat 文件返回解码后的原始图片字节（只在内存中，不落盘）。"""
+    with open(sf.path, "rb") as f:
+        raw = f.read()
+    if sf.dat_key is None:
+        return raw
+    return raw.translate(dat_xor_table(sf.dat_key))
+
+
 def probe_file(sf: StickerFile) -> dict:
-    """读取单个表情的完整元数据：md5 + 尺寸/帧数 + pHash（只读源文件）。"""
-    info = {"md5": md5_file(sf.path), "width": None, "height": None, "frames": None, "phash": None}
-    if sf.format in IMAGE_FORMATS:
+    """读取单个表情的完整元数据：md5 + 尺寸/帧数 + pHash（只读源文件）。
+
+    dat 文件的 md5/pHash 都基于**解码后**内容计算：同一张图即使被
+    用不同密钥存成两份 dat，也能正确判定为重复。
+    """
+    info = {"md5": None, "width": None, "height": None, "frames": None, "phash": None}
+    try:
+        data = read_decoded(sf)
+    except OSError:
+        data = None
+    if data is not None:
+        info["md5"] = hashlib.md5(data).hexdigest()
+    if sf.format in IMAGE_FORMATS and data is not None:
         try:
-            with Image.open(sf.path) as img:
+            with Image.open(io.BytesIO(data)) as img:
                 info["width"], info["height"] = img.size
                 info["frames"] = getattr(img, "n_frames", 1)
                 info["phash"] = phash_from_image(img)
@@ -93,6 +126,7 @@ class StickerIndex:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)
+        _ensure_column(self.conn, "dat_key", "INTEGER")
         self.conn.commit()
 
     def close(self) -> None:
@@ -131,17 +165,17 @@ class StickerIndex:
         if row:
             self.conn.execute(
                 """UPDATE stickers SET format=?, md5=?, phash=?, size=?, width=?, height=?,
-                   frames=?, first_seen=?, mtime=? WHERE id=?""",
+                   frames=?, first_seen=?, mtime=?, dat_key=? WHERE id=?""",
                 (sf.format, info["md5"], info["phash"], sf.size, info["width"], info["height"],
-                 info["frames"], first_seen, sf.mtime, row["id"]),
+                 info["frames"], first_seen, sf.mtime, sf.dat_key, row["id"]),
             )
             return "updated"
         self.conn.execute(
             """INSERT INTO stickers
-               (path, format, md5, phash, size, width, height, frames, first_seen, mtime)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+               (path, format, md5, phash, size, width, height, frames, first_seen, mtime, dat_key)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (sf.path, sf.format, info["md5"], info["phash"], sf.size, info["width"],
-             info["height"], info["frames"], first_seen, sf.mtime),
+             info["height"], info["frames"], first_seen, sf.mtime, sf.dat_key),
         )
         return "added"
 

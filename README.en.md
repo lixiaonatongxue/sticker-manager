@@ -71,15 +71,13 @@ sticker-manager export --dest D:\backup --all --include-unknown   # full backup,
 
 > It's really a "folder sticker deduper" — not tied to WeChat paths. Telegram export folders and QQ sticker folders work just as well.
 
-## Important: current WeChat encrypts stickers (field-tested)
+## Important: WeChat encryption status & decoding capability (field-tested)
 
 Verified on a real machine (2026-10, WeChat 3.x + 4.x side by side):
 
-- **WeChat 4.x** stores emoticons in `xwechat_files\wxid_*\business\emoticon\` (hash-sharded Persist/Temp/Thumb), **content encrypted**
-- **WeChat 3.x (recent builds)** wraps `FileStorage\CustomEmotion` files in a `V1MMWX` private container — **also encrypted** (older 3.x builds stored plain GIF/PNG)
-- Neither is single-byte XOR; filenames are not content MD5s
-
-Consequences: encrypted files are honestly classified as `unknown` (MD5 exact dedup still works; backup mode exports them as `.dat`). **If your WeChat version stores plain files, everything works out of the box.** Format research is welcome via issues/PRs.
+- **Emoticon stores proper**: 4.x `business\emoticon` and recent 3.x `CustomEmotion` (`V1MMWX` header) use strong encryption (not XOR; known-plaintext attacks fail). Keys live in WeChat process memory — **reading process memory violates this tool's compliance line (no injection/attachment), so we don't**. Those files are classified `unknown` and can be backed up verbatim as `.dat`; format research is welcome.
+- **Chat image stores ARE decodable**: 3.x `FileStorage\MsgAttach`, `Image`, and `Fav` hold large numbers of memes sent as image messages, stored as classic **single-byte-XOR dat** (public community knowledge for years). This tool ships an **offline decode pipeline**: sniff the key → decode in memory → MD5/pHash computed on decoded content (identical memes under different keys still dedupe) → thumbnails and exports are standard GIF/PNG/JPG.
+- **If your WeChat version stores plain files, everything works out of the box.**
 
 ## Architecture
 

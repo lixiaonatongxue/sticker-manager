@@ -8,7 +8,7 @@ import TagsView from './components/TagsView.vue'
 const tab = ref('all')
 const status = reactive({ loaded: false, data: null })
 const scanning = ref(false)
-const scanProgress = reactive({ done: 0, total: 0, error: null })
+const scanProgress = reactive({ done: 0, total: 0, note: null, error: null })
 const toast = reactive({ show: false, msg: '', err: false })
 const tagFilter = ref('')
 
@@ -39,6 +39,7 @@ async function startScan() {
       const st = await api.scanStatus()
       scanProgress.done = st.done
       scanProgress.total = st.total
+      scanProgress.note = st.note
       if (!st.running) {
         clearInterval(pollTimer)
         scanning.value = false
@@ -82,7 +83,7 @@ defineExpose({ refreshStatus })
     <div class="progress-wrap" v-if="scanning">
       <div class="progress"><div :style="{ width: (scanProgress.total ? (scanProgress.done * 100 / scanProgress.total) : 5) + '%' }"></div></div>
       <span style="font-size: 11px; color: var(--muted)">
-        索引中 {{ scanProgress.done }}/{{ scanProgress.total }}
+        {{ scanProgress.note || `索引中 ${scanProgress.done}/${scanProgress.total}` }}
       </span>
     </div>
     <button class="primary" :disabled="scanning" @click="startScan">

@@ -7,6 +7,10 @@ import io
 import pytest
 from PIL import Image, ImageDraw
 
+from fastapi.testclient import TestClient
+
+from app.server import app
+
 
 def _gradient(size: int, channel: int = 0) -> Image.Image:
     """纯线性斜坡图（用于构造内容明显不同的图；对 pHash 是病理用例，勿用于近似判断）。"""
@@ -80,3 +84,18 @@ def sticker_factory(tmp_path):
     (root / "tiny").write_bytes(b"GIF89a")      # 过小，应跳过
     expected = {"gif": 1, "png": 1, "jpg": 1, "webp": 1, "mp4": 1, "unknown": 1}
     return root, expected, scanner
+
+
+@pytest.fixture
+def client(tmp_path):
+    root = tmp_path / "CustomEmotion"
+    root.mkdir()
+    make_image_file(root / "a", "gif", size=64, hue=7)
+    make_image_file(root / "a_copy", "gif", size=64, hue=7)
+    make_image_file(root / "b", "png", size=96, hue=200)
+    app.state.db_path = tmp_path / "api.db"
+    with TestClient(app) as c:
+        yield c, root, tmp_path
+    app.state.db_path = None
+
+

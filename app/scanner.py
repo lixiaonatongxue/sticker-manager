@@ -21,6 +21,10 @@ MIN_FILE_SIZE = 64
 # 微信 3.x CustomEmotion 里的缩略图文件前缀，不作为独立表情入库
 SKIP_PREFIXES = ("th_",)
 
+# 聊天图片目录里每人均有的缩略图子目录（MsgAttach/<hash>/Thumb 等），
+# 全是小尺寸重复图：跳过可大幅减少扫描量和假重复
+SKIP_DIRNAMES = {"thumb"}
+
 
 def sniff_format(head: bytes) -> str:
     """按文件头 magic bytes 识别真实格式，识别不了返回 "unknown"。"""
@@ -39,14 +43,64 @@ def sniff_format(head: bytes) -> str:
     return "unknown"
 
 
+# 微信经典图片 dat：整文件与一个随机字节异或（社区公开多年的方案，纯离线可解）
+# 用 magic 前 3+ 字节一致性判定密钥，杜绝 2 字节 magic（BM）的误报
+_DAT_MAGICS = (
+    (b"GIF87a", "gif"), (b"GIF89a", "gif"), (b"\x89PNG\r\n\x1a\n", "png"),
+    (b"\xff\xd8\xff", "jpg"), (b"BM\x00\x00\x00", "bmp"), (b"RIFF", None),
+)
+
+
+def sniff_dat_key(head: bytes) -> tuple[str, int] | None:
+    """检测微信单字节 XOR 图片 dat，返回 (真实格式, 密钥)；非该格式返回 None。"""
+    for magic, fmt in _DAT_MAGICS:
+        if len(head) < len(magic):
+            continue
+        keys = {head[i] ^ magic[i] for i in range(len(magic))}
+        if len(keys) != 1:
+            continue
+        k = keys.pop()
+        if fmt:
+            return fmt, k
+        # RIFF....WEBP：再校验 8-11 字节异或后为 WEBP
+        if len(head) >= 12 and bytes((b ^ k) for b in head[8:12]) == b"WEBP":
+            return "webp", k
+    # mp4: 偏移 4-7 为 ftyp
+    if len(head) >= 8:
+        for k in range(256):
+            if all((head[4 + i] ^ k) == c for i, c in enumerate(b"ftyp")):
+                return "mp4", k
+    return None
+
+
 def sniff_file(path: str | os.PathLike) -> str:
-    """读取单个文件的头部并嗅探格式（只读）。"""
+    """读取单个文件的头部并嗅探格式（只读，含 dat 识别）。"""
     try:
         with open(path, "rb") as f:
             head = f.read(HEAD_LEN)
     except OSError:
         return "unknown"
-    return sniff_format(head)
+    fmt = sniff_format(head)
+    if fmt != "unknown":
+        return fmt
+    hit = sniff_dat_key(head)
+    return hit[0] if hit else "unknown"
+
+
+def sniff_full(path: str | os.PathLike) -> tuple[str, int | None]:
+    """嗅探（格式, dat 密钥）。dat 密钥供解码管线复用。"""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(HEAD_LEN)
+    except OSError:
+        return "unknown", None
+    fmt = sniff_format(head)
+    if fmt != "unknown":
+        return fmt, None
+    hit = sniff_dat_key(head)
+    if hit:
+        return hit[0], hit[1]
+    return "unknown", None
 
 
 @dataclass
@@ -55,6 +109,7 @@ class StickerFile:
     format: str
     size: int
     mtime: float
+    dat_key: int | None = None  # 微信单字节 XOR dat 的密钥（嗅探时得出）
 
 
 @dataclass
@@ -81,8 +136,11 @@ def scan_directory(
     """
     result = ScanResult(root=str(root))
     for dirpath, dirnames, filenames in os.walk(root):
-        # 跳过符号链接/联接目录，防止 OneDrive、备份联接造成死循环
-        dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
+        # 跳过符号链接/联接目录（防 OneDrive/备份联接死循环）和缩略图目录
+        dirnames[:] = [
+            d for d in dirnames
+            if not os.path.islink(os.path.join(dirpath, d)) and d.lower() not in SKIP_DIRNAMES
+        ]
         for name in sorted(filenames):
             if name.lower().startswith(skip_prefixes):
                 continue
@@ -93,8 +151,9 @@ def scan_directory(
                 continue
             if st.st_size < min_size:
                 continue
-            fmt = sniff_file(full)
-            result.files.append(StickerFile(path=full, format=fmt, size=st.st_size, mtime=st.st_mtime))
+            fmt, dat_key = sniff_full(full)
+            result.files.append(StickerFile(path=full, format=fmt, size=st.st_size,
+                                            mtime=st.st_mtime, dat_key=dat_key))
             result.counts[fmt] = result.counts.get(fmt, 0) + 1
             if max_files is not None and len(result.files) >= max_files:
                 result.truncated = True
@@ -107,14 +166,17 @@ def scan_multiple(
     max_files: int | None = None,
     min_size: int = MIN_FILE_SIZE,
     skip_prefixes: tuple[str, ...] = SKIP_PREFIXES,
+    on_root=None,
 ) -> ScanResult:
     """扫描多个目录并合并结果（max_files 是跨目录的总限额）。
 
     用于"无 path 扫描 = 自动扫全部探测到的微信目录"：多账号/多版本
-    一起入库，还能顺带做跨目录去重。
+    一起入库，还能顺带做跨目录去重。on_root(i, n, root) 在进入每个目录前回调。
     """
     merged = ScanResult(root=";".join(str(r) for r in roots))
-    for r in roots:
+    for i, r in enumerate(roots):
+        if on_root:
+            on_root(i, len(roots), str(r))
         remain = (max_files - len(merged.files)) if max_files is not None else None
         if remain is not None and remain <= 0:
             merged.truncated = True

@@ -1,6 +1,6 @@
 {
-  "_comment": "微信表情目录探测规则表。patterns 相对 base 目录，支持 * 通配。除固定 base 外，代码还会从 %APPDATA%/Tencent/xwechat/config/*.ini 读取用户自选的数据根目录（实测 2026-10：首行即路径）。4.x 表情目录为 business/emoticon（内含 Persist/Temp/Thumb 分片子目录），系真机实测确认；msg/* 候选保留以兼容其他版本。欢迎 PR 补充新版本结构。",
-  "version": 2,
+  "_comment": "微信表情目录探测规则表。patterns 相对 base 目录，支持 * 通配。除固定 base 外，代码还会从 %APPDATA%/Tencent/xwechat/config/*.ini 读取用户自选的数据根目录（实测 2026-10：首行即路径）。4.x 表情目录为 business/emoticon（内含 Persist/Temp/Thumb 分片子目录），系真机实测确认；msg/* 候选保留以兼容其他版本。欢迎 PR 补充新版本结构。 3.x 的 MsgAttach/Image/Fav 是单字节 XOR 加密的聊天图片 dat（大量表情以图片形式发送，可离线解码，2026-10 实测确认）。",
+  "version": 3,
   "roots": [
     {
       "id": "wechat3x",
@@ -13,7 +13,10 @@
       ],
       "patterns": [
         "WeChat Files/wxid_*/FileStorage/CustomEmotion",
-        "WeChat Files/wxid_*/FileStorage/Emoji"
+        "WeChat Files/wxid_*/FileStorage/Emoji",
+        "WeChat Files/wxid_*/FileStorage/MsgAttach",
+        "WeChat Files/wxid_*/FileStorage/Image",
+        "WeChat Files/wxid_*/FileStorage/Fav"
       ]
     },
     {
