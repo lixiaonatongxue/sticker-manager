@@ -18,7 +18,7 @@ from . import __version__
 from .deduper import DEFAULT_THRESHOLD, compute_duplicates, load_groups
 from .exporter import ExportSafetyError, export_stickers
 from .indexer import IMAGE_FORMATS, StickerIndex, default_db_path
-from .scanner import detect_wechat_dirs, scan_directory
+from .scanner import detect_wechat_dirs, scan_multiple
 
 app = FastAPI(title="Sticker Manager", version=__version__)
 
@@ -43,18 +43,12 @@ def _open_index(request: Request) -> StickerIndex:
 
 def _run_scan(path: str | None, max_files: int | None, db_path) -> None:
     try:
-        root = path
-        if not root:
-            found = detect_wechat_dirs()
-            if not found:
-                scan_state["last_error"] = "未探测到微信表情目录，请手动指定 path"
-                return
-            if len(found) > 1:
-                scan_state["last_error"] = "探测到多个目录，请指定 path：" + \
-                    "; ".join(f"{d.path}({d.n_files})" for d in found)
-                return
-            root = found[0].path
-        result = scan_directory(root, max_files=max_files)
+        # 无 path = 自动扫全部探测到的微信目录（多账号/多版本一起入库）
+        roots = [path] if path else [d.path for d in detect_wechat_dirs()]
+        if not roots:
+            scan_state["last_error"] = "未探测到微信表情目录，请手动指定 path"
+            return
+        result = scan_multiple(roots, max_files=max_files)
         scan_state["total"] = result.total
         idx = StickerIndex(Path(db_path) if db_path else default_db_path())
         try:
@@ -66,6 +60,7 @@ def _run_scan(path: str | None, max_files: int | None, db_path) -> None:
                 "added": stats.added, "updated": stats.updated,
                 "skipped": stats.skipped, "errors": len(stats.errors),
                 "truncated": result.truncated, "counts": result.counts,
+                "dirs": len(roots),
             }
         finally:
             idx.close()

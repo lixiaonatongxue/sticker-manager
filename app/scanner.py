@@ -102,6 +102,33 @@ def scan_directory(
     return result
 
 
+def scan_multiple(
+    roots: list[str | os.PathLike],
+    max_files: int | None = None,
+    min_size: int = MIN_FILE_SIZE,
+    skip_prefixes: tuple[str, ...] = SKIP_PREFIXES,
+) -> ScanResult:
+    """扫描多个目录并合并结果（max_files 是跨目录的总限额）。
+
+    用于"无 path 扫描 = 自动扫全部探测到的微信目录"：多账号/多版本
+    一起入库，还能顺带做跨目录去重。
+    """
+    merged = ScanResult(root=";".join(str(r) for r in roots))
+    for r in roots:
+        remain = (max_files - len(merged.files)) if max_files is not None else None
+        if remain is not None and remain <= 0:
+            merged.truncated = True
+            break
+        sr = scan_directory(r, max_files=remain, min_size=min_size, skip_prefixes=skip_prefixes)
+        merged.files.extend(sr.files)
+        for k, v in sr.counts.items():
+            merged.counts[k] = merged.counts.get(k, 0) + v
+        if sr.truncated:
+            merged.truncated = True
+            break
+    return merged
+
+
 def iter_files(root: str | os.PathLike) -> Iterator[str]:
     """简单列出目录下全部文件路径（不嗅探），供计数等用途。"""
     for dirpath, dirnames, filenames in os.walk(root):

@@ -46,7 +46,9 @@ async function startScan() {
           scanProgress.error = st.last_error
           notify('扫描失败：' + st.last_error, true)
         } else {
-          notify(`扫描完成：新增 ${st.last_stats.added}，未变 ${st.last_stats.skipped}`)
+          const s = st.last_stats
+          const where = s.dirs > 1 ? `（自动扫描 ${s.dirs} 个微信目录）` : ''
+          notify(`扫描完成${where}：新增 ${s.added}，未变 ${s.skipped}`)
         }
         refreshStatus()
       }

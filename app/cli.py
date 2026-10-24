@@ -16,7 +16,7 @@ from pathlib import Path
 from .deduper import DEFAULT_THRESHOLD, compute_duplicates, load_groups
 from .exporter import ExportSafetyError, export_stickers
 from .indexer import StickerIndex
-from .scanner import detect_wechat_dirs, scan_directory
+from .scanner import detect_wechat_dirs, scan_multiple
 
 
 def cmd_detect(args) -> int:
@@ -35,22 +35,20 @@ def _open_index(args) -> StickerIndex:
 
 
 def cmd_scan(args) -> int:
-    root = args.path
-    if not root:
+    if args.path:
+        roots = [args.path]
+    else:
         found = detect_wechat_dirs()
         if not found:
             print("未探测到微信表情目录，请用 --path 手动指定。")
             return 1
-        if len(found) > 1:
-            print("探测到多个目录，请用 --path 明确指定其一：")
-            for d in found:
-                print(f"  [{d.label}] {d.path}（{d.n_files} 个文件）")
-            return 1
-        root = found[0].path
-        print(f"使用自动探测目录: {root}")
+        roots = [d.path for d in found]
+        print(f"自动探测到 {len(roots)} 个微信表情目录，全部扫描：")
+        for d in found:
+            print(f"  [{d.label}] {d.path}（{d.n_files} 个文件）")
 
-    print(f"扫描中: {root}" + (f"（限 {args.max_files} 个文件）" if args.max_files else ""))
-    result = scan_directory(root, max_files=args.max_files)
+    print(f"扫描中: 共 {len(roots)} 个目录" + (f"（限 {args.max_files} 个文件）" if args.max_files else ""))
+    result = scan_multiple(roots, max_files=args.max_files)
     idx = _open_index(args)
     try:
         stats = idx.index_result(result, progress=lambda i, n: _progress(i, n))

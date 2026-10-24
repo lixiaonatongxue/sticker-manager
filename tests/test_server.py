@@ -95,3 +95,34 @@ def test_scan_detects_no_dir_error(client, tmp_path):
         assert "未探测到" in st["last_error"]
     finally:
         srv.detect_wechat_dirs = orig
+
+
+def test_scan_multiple_detected_dirs_scans_all(client, tmp_path):
+    """探测到多个目录时：不再让用户指定，直接全部扫描。"""
+    c, root, tmp = client
+    from app.scanner import DetectedDir
+    import app.server as srv
+
+    class FakeDir:
+        def __init__(self, p):
+            from app.scanner import DetectedDir as D
+            self.path, self.label, self.rule_id, self.n_files = p, "微信 3.x", "wechat3x", 1
+
+    # 造第二个目录
+    other = tmp / "OtherEmotion"
+    other.mkdir()
+    make_image_file(other / "z", "gif", size=64, hue=99)
+
+    orig = srv.detect_wechat_dirs
+    srv.detect_wechat_dirs = lambda **kw: [
+        FakeDir(str(root)), FakeDir(str(other))]
+    try:
+        assert c.post("/api/scan", json={}).status_code == 200
+        st = _wait_scan_done(c)
+        assert st["last_error"] is None
+        assert st["last_stats"]["dirs"] == 2
+        total = c.get("/api/status").json()["summary"]["total"]
+        n_root = len(list((root).iterdir()))
+        assert total == n_root + 1  # 两个目录全部入库
+    finally:
+        srv.detect_wechat_dirs = orig

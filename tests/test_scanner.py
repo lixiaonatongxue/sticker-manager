@@ -10,6 +10,7 @@ from app.scanner import (
     default_rules_path,
     is_probably_wechat_dir,
     scan_directory,
+    scan_multiple,
     sniff_format,
 )
 
@@ -45,6 +46,20 @@ def test_scan_directory_max_files_truncates(sticker_factory):
     result = scan_directory(root, max_files=3)
     assert result.total == 3
     assert result.truncated
+
+
+def test_scan_multiple_merges_and_caps(sticker_factory, tmp_path):
+    root, expected, _ = sticker_factory
+    other = tmp_path / "other"
+    other.mkdir()
+    make_image_file(other / "x", "gif", size=64, hue=55)
+    merged = scan_multiple([root, other])
+    assert merged.total == sum(expected.values()) + 1
+    assert merged.counts["gif"] == expected["gif"] + 1
+    assert not merged.truncated
+    # 总限额跨目录生效：第一个目录就够 4 个，第二个目录只补 1 个
+    capped = scan_multiple([root, other], max_files=4)
+    assert capped.total == 4 and capped.truncated
 
 
 def test_scan_directory_small_file_skipped(sticker_factory):

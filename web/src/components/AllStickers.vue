@@ -106,8 +106,7 @@ onMounted(() => { load(); loadTags() })
 
     <div class="loader" v-if="loading">加载中…</div>
     <div class="empty" v-else-if="!items.length">
-      还没有表情。点击右上角「⟳ 扫描（增量）」，或先用命令行
-      <code>sticker-manager scan --path 目录</code> 建立索引。
+      还没有表情。点击右上角「⟳ 扫描（增量）」，会自动探测并索引全部微信表情目录（多账号/3.x/4.x 一起扫）。
     </div>
     <div class="grid" v-else>
       <StickerCard
