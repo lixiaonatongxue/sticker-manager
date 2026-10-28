@@ -4,7 +4,6 @@
 
 > A fully local WeChat sticker manager: auto-locate sticker files, sniff real formats, visual deduplication, tag filtering, and one-click batch export.
 
-**No network. No process injection. Read-only on your disk. Never writes into WeChat directories.**
 
 ![demo](docs/demo.gif)
 
